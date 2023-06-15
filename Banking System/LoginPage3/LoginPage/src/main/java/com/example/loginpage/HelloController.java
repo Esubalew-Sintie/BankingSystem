@@ -65,7 +65,7 @@ public class HelloController implements Initializable {
     @FXML
     private TextField txtpassword;
     @FXML
-    private TextField txtdeposit;
+    private TextField txtdeposit=new TextField();
 
     @FXML
     private ComboBox<String> role=new ComboBox<>();
@@ -92,7 +92,7 @@ public class HelloController implements Initializable {
     private TextField txtaddress;
     private String logedPerson;
     @FXML
-    private TextField txtamount;
+    private TextField txtamount=new TextField();
     @FXML
     private TextField txtto;
 
@@ -355,8 +355,9 @@ public class HelloController implements Initializable {
                 System.out.println(re1.getString("role").equals("superadmin"));
             }
         }
+
         if (superadmin) {
-            if (e && n && d && p && rolee != "superadmin") {
+            if (e && n && d && p  && rolee != "superadmin") {
                 if (rolee.equals("customer")) {
                     String sql = "INSERT INTO customer  (id,name,address,accountNumber,deposit,password,role) VALUES(?,?,?,?,?,?,?)";
                     PreparedStatement prep = con.prepareStatement(sql);
@@ -364,7 +365,7 @@ public class HelloController implements Initializable {
                     prep.setString(2, txtname.getText());
                     prep.setString(3, txtaddress.getText());
                     prep.setString(4, txtaccnumber.getText());
-                    prep.setString(5, txtdeposit.getText());
+                    prep.setDouble(5, Double.parseDouble(txtdeposit.getText()));
                     prep.setString(6, txtpassword.getText());
                     prep.setString(7, rolee);
                     prep.executeUpdate();
@@ -416,7 +417,7 @@ public class HelloController implements Initializable {
                 alert.setContentText("You successfully registered !!!");
                 alert.showAndWait();
                 System.out.println(user == "superadmin");
-                System.out.println(user.equals("superadmin"));
+
 
                 write_read();
                 txtname.clear();
@@ -663,30 +664,60 @@ public class HelloController implements Initializable {
     }
 
     public void transferbtn(ActionEvent event) throws SQLException, IOException {
-        int t=Integer.parseInt(txtamount.getText());
-
+        int value = 0;
+        int m=0;
         String sql="select *from customer where id=?";
         PreparedStatement stm=con.prepareStatement(sql);
         stm.setString(1,txtsearch.getText());
         ResultSet rt=stm.executeQuery();
+
         while (rt.next()) {
-            int x=rt.getInt("deposit")-t;
-            String sql1="update customer set deposit ='"+x+"' where id=?";
+            boolean t=true;
+            try {
+                value= Integer.parseInt(txtamount.getText());
+            }
+            catch (Exception ex){
+                txtamount.setPromptText("please enter integer value only");
+                System.out.println("please enter integer value only");
+                t=false;
+
+            }
+            if (rt.getInt("deposit")<value){
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("In sufficient Money");
+                alert.setContentText("You Don't Have enough money");
+                alert.showAndWait();
+            }
+
+            if(t && rt.getInt("deposit")>value){
+            int x=rt.getInt("deposit")-value;
+            String sql1="update customer set deposit ='"+x+"' where id=?";;
             PreparedStatement st=con.prepareStatement(sql1);
             st.setString(1,rt.getString("id"));
             st.executeUpdate();
-        }
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                alert.setTitle("You Successfully transfered ");
+                alert.setContentText("You Successfully transfered  " +value+"  Birr");
+                alert.showAndWait();
+                txtname.clear();
+                txtbalance.clear();
+                txtaccnumber.clear();
+                txtamount.clear();
+                txtto.clear();
+
+            }}
         String sql2="select *from customer where id=?";
         PreparedStatement stm2=con.prepareStatement(sql2);
         stm2.setString(1,txtto.getText());
         ResultSet rt2=stm2.executeQuery();
         while (rt2.next()) {
-            int x=rt2.getInt("deposit")+t;
-            System.out.println(rt2.getInt("deposit")-Integer.parseInt(txtamount.getText()));
-            String sql1="update customer set deposit ='"+x+"' where id=?";
-            PreparedStatement st=con.prepareStatement(sql1);
-            st.setString(1,txtto.getText());
-            st.executeUpdate();
+                m=rt2.getInt("deposit")+value;
+                String sql1 = "update customer set deposit ='" + m + "' where id=?";
+                PreparedStatement st = con.prepareStatement(sql1);
+                st.setString(1, txtto.getText());
+                st.executeUpdate();
+                System.out.println("m ="+m);
+
         }
         Date now = new Date(System.currentTimeMillis());
 
@@ -784,7 +815,32 @@ public class HelloController implements Initializable {
             role.setItems(list);
             role.getSelectionModel().select(0);
 
-
+            txtamount.setTextFormatter(new TextFormatter<>(change -> {
+            // Check if the new value is a numeric value
+            if (change.getControlNewText().matches("-?\\d*\\.?\\d+")) {
+                // Clear the Tooltip message if the new value is valid
+                txtamount.setTooltip(null);
+                return change;
+            } else {
+                // Display an error message using a Tooltip
+                Tooltip tooltip = new Tooltip("Please enter a numeric value");
+                txtamount.setTooltip(tooltip);
+                return null;
+            }
+        }));
+        txtdeposit.setTextFormatter(new TextFormatter<>(change -> {
+            // Check if the new value is a numeric value
+            if (change.getControlNewText().matches("-?\\d*\\.?\\d+")) {
+                // Clear the Tooltip message if the new value is valid
+                txtdeposit.setTooltip(null);
+                return change;
+            } else {
+                // Display an error message using a Tooltip
+                Tooltip tooltip = new Tooltip("Please enter a numeric value");
+                txtdeposit.setTooltip(tooltip);
+                return null;
+            }
+        }));
     }
     @FXML
     void refresh(ActionEvent event) throws SQLException, IOException {
@@ -805,12 +861,12 @@ public class HelloController implements Initializable {
         writer.close();
     }
     public  void write_read() throws SQLException, IOException {
-        String sqlw = "SELECT user.name, user.id, FXsql.userName, FXsql.password, FXsql.role, " +
-                "transaction.devent, transaction.tevent FROM user JOIN fxsql ON " +
-                "user.id = fxsql.account_id JOIN transaction ON transaction.user_id = fxsql.account_id;";
+        String sqlw = "SELECT admin.id,admin.name, admin.address ,admin.role,  " +
+                "transaction.devent, transaction.tevent FROM admin JOIN transaction ON " +
+                "admin.id = transaction.user_id ;";
         PreparedStatement pt = con.prepareStatement(sqlw);
         ResultSet res0 = pt.executeQuery();
-        String sqlwo = "SELECT *FROM user JOIN fxsql ON user.id  = fxsql.account_id;";
+        String sqlwo = "SELECT *FROM user JOIN admin ;";
         PreparedStatement pto = con.prepareStatement(sqlwo);
         ResultSet res1 = pto.executeQuery();
 
@@ -824,7 +880,7 @@ public class HelloController implements Initializable {
 
         while (res1.next()) {
             StringBuilder tableData = new StringBuilder();
-            tableData.append(String.format("%-10s %-20s %-20s %-20s %-10s\n",res1.getString("name"), res1.getString("id"), res1.getString("userName"), res1.getString("password"), res1.getString("role")));
+            tableData.append(String.format("%-10s %-20s %-20s %-20s %-10s\n",res1.getString("name"), res1.getString("id"), res1.getString("address"), res1.getString("password"), res1.getString("role")));
             writer.write(tableData.toString());
 
         }
@@ -836,9 +892,9 @@ public class HelloController implements Initializable {
                 writetran.write(tableData1.toString());
             }
         }
-        String sqlwos = "SELECT user.name, user.id, FXsql.userName, FXsql.password, FXsql.role, " +
-                "transaction.devent, transaction.tevent FROM user JOIN fxsql ON " +
-                "user.id = fxsql.account_id JOIN transaction ON transaction.user_id = fxsql.account_id;";
+        String sqlwos = "SELECT admin.id,admin.name, admin.address ,admin.role,  " +
+                "transaction.devent, transaction.tevent FROM admin JOIN transaction ON " +
+                "admin.id = transaction.user_id ;";
         PreparedStatement ptos = con.prepareStatement(sqlwos);
         ResultSet r = ptos.executeQuery();
         while (r.next()) {
@@ -867,7 +923,7 @@ public class HelloController implements Initializable {
     }
     public  void readfile(ActionEvent event) {
         try {
-            BufferedReader reader = new BufferedReader(new FileReader("D:\\code block\\LoginPage3\\LoginPage\\transaction.txt"));
+            BufferedReader reader = new BufferedReader(new FileReader("D:\\code block\\LoginPage6\\LoginPage5\\transaction.txt"));
             String line;
             System.out.println("read");
             StringBuilder content = new StringBuilder();
@@ -907,7 +963,7 @@ public class HelloController implements Initializable {
     public  void readfileSuper(ActionEvent event) throws IOException {
 
         try {
-            BufferedReader reader = new BufferedReader(new FileReader("D:\\code block\\LoginPage3\\LoginPage\\transactionALL.txt"));
+            BufferedReader reader = new BufferedReader(new FileReader("D:\\code block\\LoginPage6\\LoginPage5\\transactionALL.txt"));
             String line;
             StringBuilder content = new StringBuilder();
             while ((line = reader.readLine()) != null) {
@@ -924,7 +980,7 @@ public class HelloController implements Initializable {
         StringBuilder content = new StringBuilder();
 
         try {
-            BufferedReader reader = new BufferedReader(new FileReader("D:\\code block\\LoginPage3\\LoginPage\\account.txt"));
+            BufferedReader reader = new BufferedReader(new FileReader("D:\\code block\\LoginPage6\\LoginPage5\\account.txt"));
             System.out.println("read");
             while ((line = reader.readLine()) != null) {
                 content.append(line).append("\n");
@@ -1008,14 +1064,44 @@ void  transacton(ActionEvent event) throws IOException {
         PreparedStatement stm=con.prepareStatement(sql);
         stm.setString(1,txtsearch.getText());
         ResultSet rt=stm.executeQuery();
+        int value = 0;
+        boolean t=true;
         while (rt.next()) {
-        int x=rt.getInt("deposit")-Integer.parseInt(txtamount.getText());
+            try {
+                 value= Integer.parseInt(txtamount.getText());
+            }
+            catch (Exception ex){
+                txtamount.setPromptText("please enter integer value only");
+                System.out.println("please enter integer value only");
+                t=false;
+
+            }
+
+           if (rt.getInt("deposit")<value){
+               Alert alert = new Alert(Alert.AlertType.WARNING);
+               alert.setTitle("In sufficient Money");
+               alert.setContentText("You Don't Have enough money");
+               alert.showAndWait();
+           }
+            System.out.println("rt.getInt(\"deposit\")<value"+rt.getInt("deposit"));
+
+            if(t && rt.getInt("deposit")>value){
+            int x=rt.getInt("deposit")-value;
             String sql1="update customer set deposit ='"+x+"' where id=?";
             PreparedStatement st=con.prepareStatement(sql1);
             st.setString(1,rt.getString("id"));
-           st.executeUpdate();
+            st.executeUpdate();
             System.out.println(rt.getInt("deposit")-Integer.parseInt(txtamount.getText()));
-        }
+                txtbalance.setText(String.valueOf(x));
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                alert.setTitle("Successfully Withdrawal ");
+                alert.setContentText("You Successfully Withdrawal  " +value+"  Birr");
+                alert.showAndWait();
+                txtname.clear();
+                txtbalance.clear();
+                txtaccnumber.clear();
+                txtamount.clear();
+            }}
         Date now = new Date(System.currentTimeMillis());
 
         SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy hh:mm:ss");
@@ -1030,10 +1116,8 @@ void  transacton(ActionEvent event) throws IOException {
         preptr.setString(1, txtsearch.getText());
         preptr.setString(2, formattedDate);
         preptr.setString(3, "withdrawal");
-        preptr.setString(4, txtamount.getText());
+        preptr.setString(4, String.valueOf(value));
         preptr.executeUpdate();
-
-
         write_read();
         }
 
@@ -1043,12 +1127,31 @@ void  transacton(ActionEvent event) throws IOException {
         PreparedStatement stm=con.prepareStatement(sql);
         stm.setString(1,txtsearch.getText());
         ResultSet rt=stm.executeQuery();
+        int value = 0;
+        boolean t=true;
         while (rt.next()) {
-            int x=rt.getInt("deposit")+Integer.parseInt(txtamount.getText());
+            try {
+                value= Integer.parseInt(txtamount.getText());
+            }
+            catch (Exception ex){
+                txtamount.setPromptText("please enter integer value only");
+                System.out.println("please enter integer value only");
+                t=false;
+
+            }
+            int x=rt.getInt("deposit")+value;
             String sql1="update customer set deposit ='"+x+"' where id=?";
             PreparedStatement st=con.prepareStatement(sql1);
             st.setString(1,rt.getString("id"));
             st.executeUpdate();
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("Successfully Deposit ");
+            alert.setContentText("You Successfully Deposit  " +value+"  Birr");
+            alert.showAndWait();
+            txtname.clear();
+            txtbalance.clear();
+            txtaccnumber.clear();
+            txtamount.clear();
             System.out.println(rt.getInt("deposit")-Integer.parseInt(txtamount.getText()));
         }
         Date now = new Date(System.currentTimeMillis());
